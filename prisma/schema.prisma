@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum Color {
+  GREEN
+  VIOLET
+  RED
+}
+
+enum RoundStatus {
+  OPEN
+  SETTLING
+  SETTLED
+}
+
+enum BetStatus {
+  PENDING
+  WON
+  LOST
+}
+
+enum TxType {
+  SIGNUP_BONUS
+  ADMIN_ADJUST
+  BET
+  WIN
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  name      String   @default("")
+  role      Role     @default(USER)
+  active    Boolean  @default(true)
+  coins     Int      @default(0)
+  createdAt DateTime @default(now())
+  bets      Bet[]
+  txs       CoinTx[]
+}
+
+model Otp {
+  phone     String   @id
+  hash      String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  sentAt    DateTime @default(now())
+}
+
+model Round {
+  id           Int         @id @default(autoincrement())
+  startsAt     DateTime    @unique
+  endsAt       DateTime
+  status       RoundStatus @default(OPEN)
+  seed         String
+  seedHash     String
+  resultNumber Int?
+  bets         Bet[]
+
+  @@index([status, endsAt])
+}
+
+model Bet {
+  id        String    @id @default(cuid())
+  userId    String
+  roundId   Int
+  color     Color
+  amount    Int
+  payout    Int       @default(0)
+  status    BetStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  round     Round     @relation(fields: [roundId], references: [id])
+
+  @@index([roundId])
+  @@index([userId, createdAt])
+}
+
+model CoinTx {
+  id           String   @id @default(cuid())
+  userId       String
+  amount       Int
+  type         TxType
+  note         String   @default("")
+  balanceAfter Int
+  actorId      String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actorName String
+  action    String
+  target    String   @default("")
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
